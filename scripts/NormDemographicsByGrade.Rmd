@@ -1,0 +1,50 @@
+---
+title: "Norm Demographics"
+author: "Cassandra PW"
+date: "5/11/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_knit$set(root.dir = "/Users/cpotier/Malabi/R_malabi")
+knitr::opts_chunk$set(warning=FALSE, message = FALSE)
+
+library(readxl) ; library(readr); library(ggplot2) ;  library(Hmisc); library(ez) ; library(reshape2);library(pander) 
+panderOptions('round', 3)
+panderOptions('keep.trailing.zeros', TRUE)
+```
+
+
+```{r}
+subj <- read_excel("data/raw/subject_database.xlsx")
+s <- subj[subj$include_in_norms==TRUE, ] #All this means are children from 'normal' schools.
+#Hmisc::describe(s) #Check the data
+```
+
+Are there outliers in age?
+```{r}
+ggplot(s, aes(age_in_months)) +
+  geom_histogram(binwidth = 3) +
+  facet_wrap(.~grade)
+
+s$grade<-factor(s$grade)
+ggplot(s, aes(grade, age_in_months)) +
+  geom_boxplot()
+#Looks like there are 3 outliers in grade 5. Are theses +2SD
+
+
+# Remove outliers that are >2SD from the mean for the grade as these are probably children held back or foreign students.
+sagg <- ezStats(s, dv=age_in_months, wid=subj_id, between = .(grade))
+sagg$outliers <- 2*sagg$SD + sagg$Mean
+
+grade <- 6 #choose the grade you are interested in.
+s$include_in_norms[s$grade==grade] <- ifelse(s$age_in_months[s$grade==grade]<sagg$outliers[sagg$grade==grade], 1, 0)
+#"lounes_a"    "roni_a"      "guillaume_o" "kevin_t"     "francel_n"   "iliana_c"    "solkem_n" 
+
+table(s$grade, s$sex, s$include_in_norms)
+
+write.csv(s, "data/clean/subjects_for_norms.csv", row.names = FALSE)
+```
+
+
+
